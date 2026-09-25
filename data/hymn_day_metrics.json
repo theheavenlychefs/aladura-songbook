@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "generatedAt": "2026-09-25T00:00:00.000Z",
+  "dailySeed": 433,
+  "rotationNumbers": [433, 1, 2, 4, 73, 85, 116, 199, 201, 204, 270, 433, 585, 699, 751, 776, 801, 837],
+  "weights": {
+    "rotation": 0.7,
+    "localEngagement": 0.3
+  }
+}
