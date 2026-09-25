@@ -728,7 +728,8 @@ function renderReaderAudioPopup(hymn, language) {
   if (state.audioCollapsed) {
     return `
       <aside class="audio-popover collapsed" style="${dockStyle}" aria-label="Collapsed hymn audio">
-        <div class="audio-collapsed-card" data-audio-drag>
+        <div class="audio-collapsed-card">
+          <span class="audio-drag-grip" data-audio-drag aria-hidden="true"></span>
           <button class="audio-mini-action primary" type="button" data-audio-toggle ${file ? "" : "disabled"} aria-label="Play hymn audio">${state.audioPlaying ? icons.pause : icons.play}</button>
           <button class="audio-mini-action" type="button" data-audio-expand aria-label="Expand hymn audio">${icons.expand}</button>
         </div>
@@ -1031,6 +1032,7 @@ function bindEvents() {
   document.querySelector("[data-favourite]")?.addEventListener("click", toggleFavourite);
   document.querySelector("[data-reader-audio]")?.addEventListener("click", () => {
     state.audioPopup = true;
+    state.audioCollapsed = false;
     state.menuOpen = false;
     state.audioNumber = state.currentNumber;
     render();
@@ -1047,6 +1049,15 @@ function bindEvents() {
     state.audioNumber = state.currentNumber;
     render();
   });
+  document.querySelector("[data-audio-collapse]")?.addEventListener("click", () => {
+    state.audioCollapsed = true;
+    render();
+  });
+  document.querySelector("[data-audio-expand]")?.addEventListener("click", () => {
+    state.audioCollapsed = false;
+    render();
+  });
+  bindAudioDrag();
   document.querySelectorAll("[data-language]").forEach((button) => {
     button.addEventListener("click", () => {
       state.language = button.dataset.language;
@@ -1122,8 +1133,10 @@ function bindEvents() {
     });
   });
   document.querySelector("[data-audio-toggle]")?.addEventListener("click", () => {
-    state.audioPlaying = false;
-    showToast("Audio files are referenced in the hymnal data, but the media assets are not bundled yet.");
+    state.audioPlaying = !state.audioPlaying;
+    showToast(state.audioPlaying
+      ? "Audio reference selected. Media assets are not bundled yet."
+      : "Audio paused.");
   });
   document.querySelectorAll("[data-nav]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -1147,6 +1160,45 @@ function bindEvents() {
         render();
       }
     });
+  });
+}
+
+function bindAudioDrag() {
+  const dock = document.querySelector(".audio-popover");
+  const handles = document.querySelectorAll("[data-audio-drag]");
+  if (!handles.length || !dock) return;
+  const startDrag = (event) => {
+    if (event.target.closest("button")) return;
+    event.preventDefault();
+    const start = dock.getBoundingClientRect();
+    const offsetX = event.clientX - start.left;
+    const offsetY = event.clientY - start.top;
+    if (event.pointerId !== undefined) event.currentTarget.setPointerCapture?.(event.pointerId);
+    dock.classList.add("dragging");
+    const move = (moveEvent) => {
+      const width = dock.offsetWidth;
+      const height = dock.offsetHeight;
+      const x = Math.max(8, Math.min(window.innerWidth - width - 8, moveEvent.clientX - offsetX));
+      const y = Math.max(8, Math.min(window.innerHeight - height - 64, moveEvent.clientY - offsetY));
+      state.audioDock = { x: Math.round(x), y: Math.round(y) };
+      dock.style.setProperty("--audio-left", `${state.audioDock.x}px`);
+      dock.style.setProperty("--audio-top", `${state.audioDock.y}px`);
+    };
+    const up = () => {
+      dock.classList.remove("dragging");
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up, { once: true });
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up, { once: true });
+  };
+  handles.forEach((handle) => {
+    handle.addEventListener("pointerdown", startDrag);
+    handle.addEventListener("mousedown", startDrag);
   });
 }
 
