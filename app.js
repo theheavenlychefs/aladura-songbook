@@ -192,7 +192,8 @@ function searchHymns(query, filter = "all", limit = 8) {
 function scoreHymn(hymn, query, numeric, filter) {
   let best = { score: 0, language: "en", excerpt: "" };
   if (numeric && String(hymn.number) === query) {
-    best = { score: 1000, language: availableLanguages(hymn)[0] || "en", excerpt: firstLyricLine(hymn) };
+    const language = availableLanguages(hymn)[0] || "en";
+    best = { score: 1000, language, excerpt: firstLyricLine(hymn, language) };
   }
   for (const language of ["en", "yo"]) {
     if (filter !== "all" && filter !== language) continue;

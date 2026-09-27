@@ -664,7 +664,7 @@ input:focus-visible {
   left: 50%;
   right: auto;
   bottom: 0;
-  width: min(100vw, 430px);
+  width: min(100%, 430px);
   height: calc(58px + env(safe-area-inset-bottom));
   padding-bottom: env(safe-area-inset-bottom);
   border-top: 1px solid var(--as-line);
@@ -812,7 +812,7 @@ input:focus-visible {
 .hymn-step {
   position: absolute;
   z-index: 2;
-  top: 22%;
+  top: 34px;
   width: 32px;
   height: 46px;
   border: 0;

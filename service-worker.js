@@ -1,4 +1,4 @@
-const CACHE_NAME = "aladura-songbook-v22";
+const CACHE_NAME = "aladura-songbook-v24";
 const CORE_ASSETS = [
   "./",
   "./index.html",
