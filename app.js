@@ -31,48 +31,6 @@ const icons = {
   x: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>'
 };
 
-const mockupHymn433 = {
-  title: "Look and Live",
-  excerpt: "Look and live; the sight is glorious; ...",
-  verses: [
-    {
-      number: 1,
-      lines: [
-        "Look and live! the sight is glorious;",
-        "See the Man of Sorrows now;",
-        "From the fight return victorious,",
-        "Every knee to Jesus bow."
-      ],
-      chorus: [
-        "Look and live, look and live,",
-        "Look and live, look and live,",
-        "At the cross, at the cross,",
-        "Look and live!"
-      ]
-    },
-    {
-      number: 2,
-      lines: [
-        "See the dying Prince of Glory,",
-        "See His wounds and count the cost;",
-        "Hear the faithful watchman’s story,",
-        "You who once your way have lost."
-      ],
-      chorus: []
-    },
-    {
-      number: 3,
-      lines: [
-        "Look and live! the sight is glorious;",
-        "See the Man of Sorrows now;",
-        "From the fight return victorious,",
-        "Every knee to Jesus bow."
-      ],
-      chorus: []
-    }
-  ]
-};
-
 const app = document.querySelector("#app");
 let hymns = [];
 let hymnMetrics = null;
@@ -104,7 +62,9 @@ boot();
 async function boot() {
   try {
     const response = await fetch(DATA_URL);
-    hymns = await response.json();
+    const payload = await response.json();
+    hymns = Array.isArray(payload) ? payload : payload.hymns || [];
+    if (!hymns.length) throw new Error("No hymns found");
     hymnMetrics = await loadHymnMetrics();
     const saved = user.reading || {};
     state.currentNumber = saved.hymnNumber || 433;
@@ -164,7 +124,7 @@ function contentFor(hymn, language = state.language) {
 function availableLanguages(hymn) {
   return ["en", "yo"].filter((language) => {
     const content = contentFor(hymn, language);
-    return content && (content.title || content.verses?.length || content.raw_lines?.length);
+    return content && (content.title || content.verses?.length);
   });
 }
 
@@ -182,7 +142,29 @@ function lyricPreview(content) {
   if (!content) return "";
   const title = normalizeSearch(content.title);
   const lines = (content.verses || []).flatMap((verse) => [...(verse.lines || []), ...(verse.chorus || [])]);
-  return lines.find((line) => normalizeSearch(line) !== title) || content.raw_lines?.find((line) => normalizeSearch(line) !== title) || lines[0] || "";
+  return lines.find((line) => normalizeSearch(line) !== title) || lines[0] || "";
+}
+
+function fieldLines(value) {
+  return (Array.isArray(value) ? value : [value]).filter(Boolean);
+}
+
+function semanticInfoRows(content) {
+  if (!content) return [];
+  return [
+    ...fieldLines(content.scripture).map((line) => ({ label: "Scripture", value: line })),
+    ...fieldLines(content.metre).map((line) => ({ label: "Metre", value: line })),
+    ...fieldLines(content.info).map((line) => ({ label: "Info / notes", value: line }))
+  ];
+}
+
+function searchableInfoLines(content) {
+  return [
+    ...fieldLines(content?.scripture),
+    ...fieldLines(content?.metre),
+    ...fieldLines(content?.info),
+    ...fieldLines(content?.metadata)
+  ];
 }
 
 function displayContentFor(hymn, language = state.language) {
@@ -218,7 +200,7 @@ function scoreHymn(hymn, query, numeric, filter) {
     if (!content) continue;
     const title = normalizeSearch(content.title);
     const lyricLines = (content.verses || []).flatMap((verse) => [...(verse.lines || []), ...(verse.chorus || [])]);
-    const raw = normalizeSearch([content.title, ...(content.metadata || []), ...lyricLines].join(" "));
+    const raw = normalizeSearch([content.title, ...searchableInfoLines(content), ...lyricLines].join(" "));
     let score = 0;
     if (title === query) score += 300;
     if (title.startsWith(query)) score += 180;
@@ -240,7 +222,7 @@ function matchingExcerpt(content, query) {
   const title = normalizeSearch(content.title);
   const lyricLines = (content.verses || []).flatMap((verse) => [...(verse.lines || []), ...(verse.chorus || [])]);
   return lyricLines.find((line) => normalizeSearch(line).includes(query) && normalizeSearch(line) !== title)
-    || (content.metadata || []).find((line) => normalizeSearch(line).includes(query))
+    || searchableInfoLines(content).find((line) => normalizeSearch(line).includes(query))
     || lyricLines.find((line) => normalizeSearch(line).includes(query))
     || "";
 }
@@ -798,14 +780,14 @@ function hymnArtStyle(hymn) {
 }
 
 function renderHymnInfo(content) {
-  const metadata = (content?.metadata || []).filter(Boolean);
-  if (!metadata.length) return "";
+  const rows = semanticInfoRows(content);
+  if (!rows.length) return "";
   return `
     <div class="metadata" aria-label="Hymn information">
-      ${metadata.map((line, index) => `
+      ${rows.map((row) => `
         <div class="metadata-line">
-          <span>${index === 0 ? "Info" : "Metre / notes"}</span>
-          <strong>${escapeHtml(line)}</strong>
+          <span>${escapeHtml(row.label)}</span>
+          <strong>${escapeHtml(row.value)}</strong>
         </div>
       `).join("")}
     </div>
@@ -930,7 +912,7 @@ function renderHistoryDrawer() {
 function renderHymnBackgroundDrawer() {
   const hymn = findHymn(state.currentNumber);
   const content = displayContentFor(hymn, state.language);
-  const metadata = (content?.metadata || []).filter(Boolean);
+  const rows = semanticInfoRows(content);
   return `
     <aside class="drawer" role="dialog" aria-modal="true" aria-label="Hymn Background">
       <div class="drawer-head">
@@ -938,10 +920,10 @@ function renderHymnBackgroundDrawer() {
         <button class="icon-button" type="button" data-close-drawer aria-label="Close">${icons.x}</button>
       </div>
       <div class="history-list">
-        ${metadata.length ? metadata.map((line, index) => `
+        ${rows.length ? rows.map((row) => `
           <div class="metadata-line">
-            <span>${index === 0 ? "Info" : "Metre / notes"}</span>
-            <strong>${escapeHtml(line)}</strong>
+            <span>${escapeHtml(row.label)}</span>
+            <strong>${escapeHtml(row.value)}</strong>
           </div>
         `).join("") : `<p class="empty-copy">No background notes are available for this hymn yet.</p>`}
       </div>
